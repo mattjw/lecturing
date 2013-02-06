@@ -1,0 +1,74 @@
+#!/usr/bin/python
+#
+# Zip up a directory of code (including subdirectories), excluding unwanted types.
+# Used to archive a directory tree of code to be distributed to students.
+#
+# Argument: path to the directory to be zipped.
+#
+# Output: If the target directory is to be zipped is:
+#     /a/b/c
+# then the zip file will be placed in the target's parent directory; i.e.:
+#     /a/b/c.zip
+#
+# If an existing zip file is found it will be erased.
+
+import sys
+import os
+import os.path 
+import shutil 
+import argparse
+
+if __name__ == "__main__":
+    
+    #
+    # Input args
+    parser = argparse.ArgumentParser(description="zipcode")
+    parser.add_argument('input_path', action='store', type=str)
+    args = parser.parse_args()
+    input_path = args.input_path
+
+    #
+    # Config
+    # List of things to exclude...
+    excl_list = ["*.class",
+                 "*.svn*",
+                 "*.DS_Store*",
+                 "*.pyc",  ]
+
+    #
+    # Path interpretation
+    abs_path = os.path.abspath(input_path)  # Get full path so we can get parent properly
+    parent_dir, code_dirname = os.path.split(abs_path.rstrip('/'))
+    code_dirname = code_dirname.strip("/")
+
+    #
+    # Prep
+    os.chdir(parent_dir)
+        # From here on all paths assumed relative to the parent dir of the chosen
+        # directory
+
+    input_dir_fpath = "./%s" % (code_dirname)
+    out_arch = "./%s.zip" % (code_dirname)
+    
+    # Check that the input directory exists
+    if not os.path.exists(input_dir_fpath):
+        print "Input path (%s) not found" % (input_dir_fpath)
+        exit(1)
+    elif not os.path.isdir(input_dir_fpath):
+        print "Input path (%s) is not a directory" % (input_dir_fpath)
+        exit(1)
+    
+    # Erase an existing zip file
+    if os.path.exists(out_arch) and os.path.isfile(out_arch):
+        print "Deleting %s" % (out_arch)
+        os.remove(out_arch)
+
+    #
+    # Do zip
+    excl = [ "'%s'"%s for s in excl_list ]
+    excl_str = ' '.join(excl)
+
+    cmd = "zip -r %s %s -x %s" % (out_arch, input_dir_fpath, excl_str)
+
+    print cmd
+    os.system(cmd)
