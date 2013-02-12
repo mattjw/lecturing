@@ -171,13 +171,7 @@ public class CSIJUnitGrader
                 System.out.println( "Failure cause: ");
                 System.out.println( "\t  " + f.getMessage() );
                 System.out.printf( "\t  see Line %s of %s%n", getExceptionLineNumber( f.getException().getStackTrace(), junitClassName ), junitClassName );
-                //System.out.println( "\t" + f.getException() );
-                //System.out.println( "\t" + f.getDescription() );
-                //System.out.println( "\t" + f.getTrace() );
-                //System.out.println( "-\t" + f.getException().getStackTrace() );
                 System.out.println( "Marks deducted: " + testMarks );
-                
-                //int linenum = getExceptionLineNumber( f.getException().getStackTrace(), junitClassName );
                 
                 System.out.println();
             }
