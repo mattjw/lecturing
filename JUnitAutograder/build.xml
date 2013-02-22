@@ -9,18 +9,20 @@
   </fileset>
 </path>
 
+
+
 <!-- Compile source code. -->
 <target name="buildsrc" >
-<javac srcdir="src" destdir="build" debug="true" includes="**/*.java">
+<javac srcdir="src" destdir="build/src/" debug="true" includes="**/*.java">
   <classpath refid="class.path"/>
 </javac>
 </target>
 
 <!-- Create unified JAR. Includes the output class files and required JARs. -->
 <target name="buildjar" depends="buildsrc">
-<jar destfile="autograder.jar">
+<jar destfile="build/jar/autograder.jar">
   <zipgroupfileset dir="lib" includes="*.jar"/>
-  <fileset dir="build" includes="**/*.class"/>
+  <fileset dir="build/src" includes="**/*.class"/>
 </jar>
 </target>
 
