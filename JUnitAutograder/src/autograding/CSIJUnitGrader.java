@@ -24,10 +24,11 @@ import java.lang.reflect.*;
  * based on how many tests passed.
  *  
  * Command line args:
- * CSIJunitGrader [-s] className
+ * CSIJunitGrader [-m] [-s] className
  * 
  * className: the name of the class containing unit tests
- * -s:        output the score only
+ * -m:        output the mark only
+ * -s:        run in sandboxed mode
  * 
  * All unit tests should be annotated with @GradedTest. This is in addition
  * to the regular JUnit @Test annotation. @GradedTest is used to specify the 
@@ -37,32 +38,53 @@ import java.lang.reflect.*;
  */
 public class CSIJUnitGrader
 {
+    public static final String MARKS_ONLY_OPT = "-m";
+    public static final String SANDBOX_MODE_OPT = "-s";
+    
     public static void main( String[] args )
     {
         //
         // Process args
-        if( (args.length <= 0) || (args.length >= 3) )
+        int minNumArgs = 1;
+        int maxNumArgs = 3;
+        if( (args.length < minNumArgs) || (args.length > maxNumArgs) )
         {
             System.out.println( "Incorrect number of arguments: " + args.length );
             System.exit( 1 );
         }
         
+        List<String> argsList = new LinkedList<String>( Arrays.asList( args ) );
+        
+        // Args outputs
         String junitClassName = null;
-        boolean scoreOnly = false;
-        if( args.length == 1 )
+        boolean markOnly = false;
+        boolean sandboxMode = false;
+        
+        // Last argument must be the unit test class
+        junitClassName = argsList.remove( argsList.size()-1 );
+        
+        // Remaining arguments are options
+        Set<String> opts = new HashSet<String>( argsList );
+        Iterator<String> it = opts.iterator();  // must use `it` to iterate and remove (using `opts` is unstable)
+        while( it.hasNext() )
         {
-            junitClassName = args[0];
-        }
-        else if( args.length == 2 )
-        {
-            junitClassName = args[1];
-            if( args[0].equals("-s") )
-                scoreOnly = true;
+            String opt = it.next();
+            if( opt.equals(MARKS_ONLY_OPT) )
+                markOnly = true;
+            else if( opt.equals(SANDBOX_MODE_OPT) )
+                sandboxMode = true;
             else
             {
-                System.out.println( "Invalid option: " + args[0] );
-                System.exit( 1 );
+                System.out.println( "Unknown option: " + opt );
+                System.exit(1);
             }
+            it.remove();  // removes the last element from the underlying collection
+        }
+        
+        if( opts.size() > 0 )
+        {
+            System.out.println( opts.size() + " unparsed options" );
+            System.exit(1);
         }
         
         //
@@ -81,10 +103,17 @@ public class CSIJUnitGrader
         }
         
         //
+        // Set up sandbox
+        if( sandboxMode )
+        {
+            SecurityManager sm = new GraderSecurityManager();
+            System.setSecurityManager( sm );
+        }
+        
+        //
         // Do run
         JUnitCore junit = new JUnitCore();
         Result result = junit.run( junitClass );
-        
         
         boolean allPassed = result.wasSuccessful();
         int numFailures = result.getFailureCount();
@@ -100,13 +129,21 @@ public class CSIJUnitGrader
         for( Failure f : failures  )
         {
             String testName = getFailureTestName( f );  // i.e., name of the test method
-            double testMarks = getTestMark( f );
-            studentMark -= testMarks;
+            try
+            {
+                double testMarks = getTestMark( f );
+                studentMark -= testMarks;
+            }
+            catch( TestGradeAccessException ex )
+            {
+                // weird. re-throw
+                throw ex;
+            }
         }
         
         //
         // Output feedback...
-        if( scoreOnly )
+        if( markOnly )
         {
             System.out.println( studentMark );
         }
@@ -181,6 +218,8 @@ public class CSIJUnitGrader
     {
         Description desc = f.getDescription();
         GradedTest annot = desc.getAnnotation(GradedTest.class);
+        if( annot == null )
+            throw new TestGradeAccessException( "Test grade not found for: " + desc );
         return annot.marks();
     }
     
