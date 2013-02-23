@@ -24,11 +24,10 @@ import java.lang.reflect.*;
  * based on how many tests passed.
  *  
  * Command line args:
- * CSIJunitGrader [-m] [-s] className
+ * CSIJunitGrader [-m] className
  * 
  * className: the name of the class containing unit tests
  * -m:        output the mark only
- * -s:        run in sandboxed mode
  * 
  * All unit tests should be annotated with @GradedTest. This is in addition
  * to the regular JUnit @Test annotation. @GradedTest is used to specify the 
@@ -39,16 +38,14 @@ import java.lang.reflect.*;
 public class CSIJUnitGrader
 {
     public static final String MARKS_ONLY_OPT = "-m";
-    public static final String SANDBOX_MODE_OPT = "-s";
     
     public static void main( String[] args )
     {
         //
         // Process args
-        int minNumArgs = 1;
-        int maxNumArgs = 3;
-        if( (args.length < minNumArgs) || (args.length > maxNumArgs) )
+        if( args.length < 1 )
         {
+            // There should be at least one argument (i.e., the unit tests file)
             System.out.println( "Incorrect number of arguments: " + args.length );
             System.exit( 1 );
         }
@@ -58,7 +55,6 @@ public class CSIJUnitGrader
         // Args outputs
         String junitClassName = null;
         boolean markOnly = false;
-        boolean sandboxMode = false;
         
         // Last argument must be the unit test class
         junitClassName = argsList.remove( argsList.size()-1 );
@@ -71,8 +67,6 @@ public class CSIJUnitGrader
             String opt = it.next();
             if( opt.equals(MARKS_ONLY_OPT) )
                 markOnly = true;
-            else if( opt.equals(SANDBOX_MODE_OPT) )
-                sandboxMode = true;
             else
             {
                 System.out.println( "Unknown option: " + opt );
@@ -100,14 +94,6 @@ public class CSIJUnitGrader
         {
             System.out.println( "Class " + junitClassName + " could not be found" ); 
             System.exit( 1 );
-        }
-        
-        //
-        // Set up sandbox
-        if( sandboxMode )
-        {
-            SecurityManager sm = new GraderSecurityManager();
-            System.setSecurityManager( sm );
         }
         
         //
