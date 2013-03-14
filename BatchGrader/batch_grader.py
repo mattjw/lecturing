@@ -70,7 +70,13 @@ This script will pad the spreadsheet to eight columns. Extra column(s) are:
 
 ## REQUIRES ##
 java
-javac 
+javac
+
+
+## POSSIBLE VULNERABILITIES ##
+A submission that prints out integers as the last thing it does? Without 
+a newline at the end. This would concatenate with the mark printed by the 
+Java autograder.
 """
 
 import os.path
@@ -263,11 +269,25 @@ def get_studnum_from_submission_dir( submission_dir ):
     #raise RuntimeError( "Unexpected username for conversion to student number " + dirname )
 
 
-def get_submission_grade( dir_fpath, unittest_classname, autograder_java_app,
-                          java_security_policy_abspath ):
+def grade_submission_and_insert( dir_fpath, unittest_classname, autograder_java_app,
+                          java_security_policy_abspath,
+                          spreadsheet_obj, studno ):
     """
-    Run the autograder in the given directory. Return the grade.
+    Run the autograder in the given directory and obtain the grade.
+    The grade will then be inserted into the spreadsheet represented by
+    `spreadsheet_obj`.
+
+    If for some reason the mark could not be obtained the method will write
+    set the cell to be empty.
+
     This will temporarily switch the working directory to the given dir.
+
+    If a grade was successfully obtained, this method will return the mark.
+    Otherwise, None is returned.
+
+    Comments will also be added to the spreadsheet for the following:
+    * failure to obtain a mark
+    * submission prints to standard out
     """
     #
     # Switch CWD
@@ -297,16 +317,31 @@ def get_submission_grade( dir_fpath, unittest_classname, autograder_java_app,
         success_output = subprocess.check_output( cmd, shell=True )
             # using shell so that environment variables are available
             # i.e., .bashrc (or whatever) gets done before running cmd
-        mark = float( success_output.strip("\n") )
+        success_output = success_output.strip("\n")  # cull the newline that follows the mark
+
+        # Need to deal with submissions that print to command line (doh!)...
+        output = success_output.split("\n")
+        if len( output ) > 1:
+            spreadsheet_obj.add_comment_for_studno( studno, "Print statements found. " )
+        
+        # Get the mark...
+        mark_str = output[-1]
+        mark = float( mark_str )
+        spreadsheet_obj.set_grade_for_studno( studno, mark )
+
     except subprocess.CalledProcessError, e:
         fail_cmd = e.cmd
         fail_code = e.returncode
-        fail_output = e.output 
+        fail_output = e.output
         print "\t[java autograder failed: %s]" % dir_fpath 
         print "\t\t[fail cmd %s]" % str(fail_cmd)
         print "\t\t[fail code %s]" % fail_code
-
+        spreadsheet_obj.add_comment_for_studno( studno, "Autograder failed. " )
         # print "\t\t%s" % fail_output          # check_output doesn't get stderr?
+
+    except ValueError, e:
+        # failed to convert string to float?
+        raise e
 
     #
     # Revert CWD
@@ -395,6 +430,11 @@ def process_submissions( unittest_classname, unittest_class_path,
         print "\tstud num:             " + studnum
         print "\tsubmission dir fpath: " + submission_fpath
 
+        # Clear the grade for the student
+        # This will also create a new row for that student if they're not
+        # already in the file 
+        spreadsheet.set_grade_for_studno( studnum, "" ) 
+
         #
         # Clean the submission dir before compilation/exec
         assert submission_fpath[-1] == "/"
@@ -424,10 +464,10 @@ def process_submissions( unittest_classname, unittest_class_path,
 
         #
         # Run grader to get mark
-        mark = get_submission_grade( submission_fpath, unittest_classname, 
-            autograder_java_app, java_security_policy_abspath )
+        mark = grade_submission_and_insert( submission_fpath, unittest_classname, 
+            autograder_java_app, java_security_policy_abspath,
+            spreadsheet, studnum )
         print "\tmark: %s" % mark 
-        spreadsheet.set_grade_for_studno( studnum, mark )
 
         #
         # Add other comments for this student 
