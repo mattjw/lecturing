@@ -88,6 +88,8 @@ import csv
 import sys
 import argparse
 
+#
+# DEFAULTS / CONSTANTS
 DEFAULT_AUTOGRADER_JAVA_APP = "autograding.CSIJUnitGrader"
     # default java application that does grading
 
@@ -271,7 +273,7 @@ def get_studnum_from_submission_dir( submission_dir ):
 
 def grade_submission_and_insert( dir_fpath, unittest_classname, autograder_java_app,
                           java_security_policy_abspath,
-                          spreadsheet_obj, studno ):
+                          spreadsheet_obj, studno, jvm_heap_size ):
     """
     Run the autograder in the given directory and obtain the grade.
     The grade will then be inserted into the spreadsheet represented by
@@ -302,12 +304,18 @@ def grade_submission_and_insert( dir_fpath, unittest_classname, autograder_java_
     #
     # Compile
     
-    cmd = ("java",
-           "-Djava.security.manager",
-           "-Djava.security.policy==%s" % (java_security_policy_abspath),
-           autograder_java_app,
-           "-m", unittest_classname)
-    cmd = reduce( lambda x,y: "%s %s" % (x,y), cmd )
+    # Build command string as list of options
+    cmd = ["java"]
+    if jvm_heap_size is not None:
+        cmd += ["-Xmx"+jvm_heap_size]
+        cmd += ["-Xms"+jvm_heap_size]
+    cmd += [ "-Djava.security.manager",
+             "-Djava.security.policy==%s" % (java_security_policy_abspath),
+             autograder_java_app,
+             "-m", unittest_classname ]
+
+    # Combine to command string
+    cmd = reduce( lambda x, y: "%s %s" % (x, y), cmd )
     # if no security policy:
     #cmd = ("java", autograder_java_app, "-m", unittest_classname)
     #cmd = reduce( lambda x,y: "%s %s" % (x,y), cmd )
@@ -389,7 +397,7 @@ def compile_submission( dir_fpath ):
 
 def process_submissions( unittest_classname, unittest_class_path, 
                          submissions_dir, spreadsheet_fpath, autograder_java_app,
-                         java_security_policy_abspath ):
+                         java_security_policy_abspath, jvm_heap_size ):
     """
     Iterate through the submissions in a given directory. Run the autograder on
     each, obtain the grade, and insert the grade into the spreadsheet/CSV file.
@@ -466,7 +474,7 @@ def process_submissions( unittest_classname, unittest_class_path,
         # Run grader to get mark
         mark = grade_submission_and_insert( submission_fpath, unittest_classname, 
             autograder_java_app, java_security_policy_abspath,
-            spreadsheet, studnum )
+            spreadsheet, studnum, jvm_heap_size )
         print "\tmark: %s" % mark 
 
         #
@@ -495,6 +503,11 @@ def main():
                          default=DEFAULT_AUTOGRADER_JAVA_APP,  # default val. thus optional
                          dest='autograder' )  # the ivar used in ArgumentParser results
 
+    parser.add_argument( '--heapsize', action='store', type=str,
+                         help='Set the JVM heap size',
+                         default=None,
+                         dest='jvm_heap_size' )  # the ivar used in ArgumentParser results
+
     # non-optional...
     parser.add_argument( 'unittest_class_file', action='store', type=str,
                          help="Path to unit test class file" )
@@ -503,12 +516,20 @@ def main():
     parser.add_argument( 'spreadsheet_file', action='store', type=str,
                          help="Path to spreadsheet file" )
 
+
     # Grab args...
     results = parser.parse_args()
     SUBMISSIONS_DIR = results.submissions_directory
     UNITTEST_CLASS_FPATH = results.unittest_class_file
     SPREADSHEET_FPATH = results.spreadsheet_file
     AUTOGRADER_JAVA_APP = results.autograder
+    jvm_heap_size = results.jvm_heap_size
+
+    # Note on JVM heap size:
+    # set the heap size for the JVM
+    # e.g., jvm_heap_size = "4g" results in:
+    #     java -Xmx4g -Xms4g ...
+    # If None then do not set heap size
 
     #SUBMISSIONS_DIR = "./CM1203+CM1207-A1/"
     #UNITTEST_CLASS_FPATH = "./Assignment1UnitTests.class"
@@ -545,12 +566,8 @@ def main():
     process_submissions( unittest_classname, unittest_class_path, 
                          SUBMISSIONS_DIR, SPREADSHEET_FPATH, 
                          AUTOGRADER_JAVA_APP,
-                         java_security_policy_abspath )
+                         java_security_policy_abspath, jvm_heap_size )
 
 
 if __name__ == "__main__":
     main()
-
-
-
-
