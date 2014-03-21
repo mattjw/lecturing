@@ -5,14 +5,22 @@ GradeCentre export options:
     * Include Hidden Information: No
 """
 
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
+
 import re
 import sys
 import os
+import collections
 
-def gradematrix_plot(raw_dataframe):
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def gradematrix_plot(raw_dataframe, diagonal='kde'):
+    if diagonal not in ['hist', 'kde']:
+        raise ValueError("%s not valid diagonal chart type" % diagonal)
+    
     #
     # Extract numeric columns (presumed to be marks)
     # Empty columns are ignored
@@ -38,10 +46,24 @@ def gradematrix_plot(raw_dataframe):
         return re.match("^(.*?)( \[.*$)", s).group(1)
     
     dframe = dframe.rename(columns=transform)
+
+    #
+    # Rename columns with same names
+    cnts = collections.Counter(dframe.columns)
+    dupes = {k:v for k,v in cnts.iteritems() if v>=2}
+    for name, _ in dupes.iteritems():
+        dupe_indxs = dframe.columns.get_loc(name).nonzero()[0]  # indexes of duplicates
+        i = 0
+        for indx in dupe_indxs:
+            i +=1
+            prev_cols = list(dframe.columns)
+            prev_cols[indx] = "%s (%d)" % (name, i)
+            dframe.columns = prev_cols
+
     
     #
     # Plot
-    ax_mat = pd.tools.plotting.scatter_matrix(dframe, alpha=0.3, figsize=(12, 12), diagonal='kde')
+    ax_mat = pd.tools.plotting.scatter_matrix(dframe, alpha=0.3, figsize=(12, 12), diagonal=diagonal)
     
     #
     # Normalise axes limits
@@ -114,6 +136,47 @@ def gradematrix_plot(raw_dataframe):
         ax = ax_mat[indx,0]
         ax.get_yticklabels()[-1].set_visible(False)
         ax.get_yticklabels()[0].set_visible(False)
+    
+    #
+    # Add border around visualisation to highlight correlation coefficient
+    coefs = np.zeros(ax_mat.shape)
+    for row_indx, rname in enumerate(dframe.columns):
+        for col_indx, cname in enumerate(dframe.columns):
+            if row_indx == col_indx:
+                continue
+            a1 = dframe[rname]
+            a2 = dframe[cname]
+
+            x = np.matrix([a1, a2]).transpose()
+    
+            # filter out a row that has a nan on it
+            keepers = (~( np.isnan(a1) | np.isnan(a2) )).nonzero()[0]
+            x = x[keepers,:]
+            x = x.transpose()
+                
+            coe_mat = np.corrcoef(x)
+            c = coe_mat[0,1]
+            coefs[row_indx,col_indx] = c
+
+    cmap = mpl.cm.get_cmap('PuBu')  # PuBu, Reds
+    
+    for row_indx, rname in enumerate(dframe.columns):
+        for col_indx, cname in enumerate(dframe.columns):
+            if row_indx == col_indx:
+                continue
+            ax = ax_mat[row_indx,col_indx]
+            x_range = ax.get_xlim()
+            y_range = ax.get_ylim()
+
+            lowleft = (x_range[0], y_range[0])
+            w = x_range[1]
+            h = y_range[1]
+            
+            corr = np.abs(coefs[row_indx,col_indx])  # in range [0,1]
+            col = cmap(corr)
+                       
+            rect = mpl.patches.Rectangle(lowleft, w, h, color=col, linewidth=12, fill=False)
+            ax.add_patch(rect)
     
     return plt.gcf()
 
