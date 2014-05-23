@@ -1,17 +1,79 @@
+#!/usr/bin/python
+
+# Example:
+#     wmconvert.py gc_1314-CM1103_fullgc_2014-02-04-13-46-39.csv 17 10008116_2013_4_SEM1_CM1103_13A_002_SAS.CSV temp.csv
+# Try
+# wmconvert.py --help 
+# for help
+
 import csv
 import re
+import argparse
+import os
 
-inMarkFileName = "gc_1314-CM1103_fullgc_2014-02-04-13-46-39.csv" # csv with marks downloaded from Learning Central
-simsFileName = "10008116_2013_4_SEM1_CM1103_13A_002_SAS.CSV" # csv exported from SIMS mark entry 
-outFileName = "temp.csv"  # Output file to be uploaded to SIMS
+#
+# Parse args
+parser = argparse.ArgumentParser(description="SIMS Web Mark Converter. Converts from a file exported from Learning Central GradeCentre to Web Mark Entry")
 
-ID_COL = 3 # Column in inMarkFileName containing the student id (without initial "c")
-SIMS_ID_COL = 6 # Column in simsFileName containing the student id
-OUT_MARK_COL = 9 # Column to place the marks in
+# Optional (keyword) args...
+parser.add_argument('--gc_sid_column', action='store', type=int,
+                    default=3,
+                    help="Column number in the GradeCentre file containing the student id (without initial 'c')" )
+parser.add_argument('--wm_sid_column', action='store', type=int,
+                    default=6,
+                    help="Column number in the WebMark file containing the student id" )
+parser.add_argument('--wm_mark_column', action='store', type=int,
+                    default=9,
+                    help="Column number in the web mark file into which marks will be inserted" )
 
-# Should be the only change needed 
-IN_MARK_COL = 17 # Column containing marks to upload
 
+# Manadtory (positional) args...
+parser.add_argument('gc_file', action='store', type=str,
+                     help='GradeCentre file -- the CSV file with marks downloaded from Learning Central GradeCentre')
+parser.add_argument('gc_mark_col', action='store', type=int,
+                     help='Column in the GraceCentre file containing marks to upload')
+parser.add_argument('wm_file', action='store', type=str,
+                     help='WebMark file -- CSV file with exported from SIMS Web Mark Entry')
+parser.add_argument('outfile', action='store', type=str,
+                     help='Output file -- this will be a copy of the original WebMark file with marks inserted')
+
+args = parser.parse_args()
+
+#
+# Grab args
+inMarkFileName = args.gc_file  # inMarkFileName = "gc_1314-CM1103_fullgc_2014-02-04-13-46-39.csv" # csv with marks downloaded from Learning Central
+simsFileName = args.wm_file  # simsFileName = "10008116_2013_4_SEM1_CM1103_13A_002_SAS.CSV" # csv exported from SIMS mark entry 
+outFileName = args.outfile  # outFileName = "temp.csv"  # Output file to be uploaded to SIMS
+
+ID_COL = args.gc_sid_column  #ID_COL = 3 # Column in inMarkFileName containing the student id (without initial "c")
+SIMS_ID_COL = args.wm_sid_column  # SIMS_ID_COL = 6 # Column in simsFileName containing the student id
+OUT_MARK_COL = args.wm_mark_column  # OUT_MARK_COL = 9  # Column to place the marks in
+
+IN_MARK_COL = args.gc_mark_col #  IN_MARK_COL = 17 # Column containing marks to upload
+
+#
+# Echo back
+print
+print "Input GradeCentre file: ", inMarkFileName
+print "...with student numbers in column: ", ID_COL
+print "Input WebMark file: ", simsFileName
+print "...with student numbers in column: ", SIMS_ID_COL
+print "Output file: ", outFileName
+print "...with marks to be inserted in column: ", IN_MARK_COL
+print
+
+#
+# Validation
+for fpath in [inMarkFileName, simsFileName]:
+    if not os.path.exists(fpath):
+        print "Failed!\nFile '%s' not found" % (fpath)
+        exit(1)
+    if not os.path.isfile(fpath):
+        print "Failed!\n'%s' is not a file" % (fpath)
+        exit(1)
+
+#
+# Process
 rdr = csv.reader(open(inMarkFileName, "rU"))
 
 marks = {}
