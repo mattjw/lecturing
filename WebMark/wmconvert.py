@@ -3,8 +3,32 @@
 # Example:
 #     wmconvert.py gc_1314-CM1103_fullgc_2014-02-04-13-46-39.csv 17 10008116_2013_4_SEM1_CM1103_13A_002_SAS.CSV temp.csv
 # Try
-# wmconvert.py --help 
+# wmconvert.py --help
 # for help
+
+# WebMark export instructions:
+# SIMS -> Assessment Management -> Assessment Mark Entry (School) -> Retrieve the relevant module
+# Select single assessment via checkbox
+# Display all students
+# Export marks
+# Generate assessment only
+
+# GradeCentre export instructions:
+# Full Grade Centre
+# Work Offline -> Download
+# Selected Column: Chose relevant mark
+# Delimiter Type: Comma
+
+# WebMark import instructions:
+# SIMS -> Assessment Management -> Assessment Mark Entry (School) -> Retrieve the relevant module
+# Select assessment via checkbox
+# Import Marks
+# Initial Assessments
+
+# Verify upload:
+# SIMS -> Assessment Management -> Assessment Mark Entry (School) -> Retrieve the relevant module
+# Select assessment via checkbox
+# View Module Results
 
 import csv
 import re
@@ -13,25 +37,25 @@ import os
 
 #
 # Parse args
-parser = argparse.ArgumentParser(description="SIMS Web Mark Converter. Converts from a file exported from Learning Central GradeCentre to Web Mark Entry")
+parser = argparse.ArgumentParser(description="SIMS Web Mark Converter. Converts from a file exported from Learning Central GradeCentre to Web Mark Entry. Columns are indexed from 1.")
 
 # Optional (keyword) args...
 parser.add_argument('--gc_sid_column', action='store', type=int,
-                    default=3,
+                    default=4,
                     help="Column number in the GradeCentre file containing the student id (without initial 'c')" )
 parser.add_argument('--wm_sid_column', action='store', type=int,
-                    default=6,
+                    default=7,
                     help="Column number in the WebMark file containing the student id" )
 parser.add_argument('--wm_mark_column', action='store', type=int,
-                    default=9,
-                    help="Column number in the web mark file into which marks will be inserted" )
+                    default=10,
+                    help="""Column number in the web mark file into which marks will be inserted (should be the "Mark" column)""" )
 
 
 # Manadtory (positional) args...
 parser.add_argument('gc_file', action='store', type=str,
                      help='GradeCentre file -- the CSV file with marks downloaded from Learning Central GradeCentre')
 parser.add_argument('gc_mark_col', action='store', type=int,
-                     help='Column in the GraceCentre file containing marks to upload')
+                     help='Column in the GraceCentre file containing marks to upload (indexed from 1)')
 parser.add_argument('wm_file', action='store', type=str,
                      help='WebMark file -- CSV file with exported from SIMS Web Mark Entry')
 parser.add_argument('outfile', action='store', type=str,
@@ -55,12 +79,21 @@ IN_MARK_COL = args.gc_mark_col #  IN_MARK_COL = 17 # Column containing marks to 
 # Echo back
 print
 print "Input GradeCentre file: ", inMarkFileName
-print "...with student numbers in column: ", ID_COL
+print " ...with student numbers in column: ", ID_COL
+print " ...and marks in column:            ", IN_MARK_COL
 print "Input WebMark file: ", simsFileName
-print "...with student numbers in column: ", SIMS_ID_COL
+print " ...with student numbers in column: ", SIMS_ID_COL
 print "Output file: ", outFileName
-print "...with marks to be inserted in column: ", IN_MARK_COL
+print " ...with marks to be inserted in column: ", OUT_MARK_COL
 print
+
+#
+# Re-index columns from 0
+ID_COL -= 1
+SIMS_ID_COL -= 1
+
+IN_MARK_COL -= 1
+OUT_MARK_COL -= 1
 
 #
 # Validation
@@ -89,7 +122,9 @@ for row in rdr:
     if no:
         number = no.groups()[0]
         if number in marks:
-            row[OUT_MARK_COL] = int(marks[number])
+            gc_mark = float(marks[number])
+            as_int = int(round(gc_mark))
+            row[OUT_MARK_COL] = as_int
         else:
             print "No mark for " + number + " " + row[7]
     out.writerow(row)
